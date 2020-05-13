@@ -16,11 +16,11 @@
 //
 
 // sets up dependencies
-const Alexa = require('ask-sdk-core');
-const i18n = require('i18next');
+import { ErrorHandler as _ErrorHandler, RequestHandler, RequestInterceptor, SkillBuilders } from 'ask-sdk-core';
+import i18n from 'i18next';
 
 // core functionality for fact skill
-const GetNewFactHandler = {
+const GetNewFactHandler: RequestHandler = {
   canHandle(handlerInput) {
     const request = handlerInput.requestEnvelope.request;
     // checks request type
@@ -47,7 +47,7 @@ const GetNewFactHandler = {
   },
 };
 
-const HelpHandler = {
+const HelpHandler: RequestHandler = {
   canHandle(handlerInput) {
     const request = handlerInput.requestEnvelope.request;
     return request.type === 'IntentRequest'
@@ -62,7 +62,7 @@ const HelpHandler = {
   },
 };
 
-const FallbackHandler = {
+const FallbackHandler: RequestHandler = {
   // The FallbackIntent can only be sent in those locales which support it,
   // so this handler will always be skipped in locales where it is not supported.
   canHandle(handlerInput) {
@@ -79,7 +79,7 @@ const FallbackHandler = {
   },
 };
 
-const ExitHandler = {
+const ExitHandler: RequestHandler = {
   canHandle(handlerInput) {
     const request = handlerInput.requestEnvelope.request;
     return request.type === 'IntentRequest'
@@ -94,18 +94,20 @@ const ExitHandler = {
   },
 };
 
-const SessionEndedRequestHandler = {
+const SessionEndedRequestHandler: RequestHandler = {
   canHandle(handlerInput) {
     const request = handlerInput.requestEnvelope.request;
     return request.type === 'SessionEndedRequest';
   },
   handle(handlerInput) {
-    console.log(`Session ended with reason: ${handlerInput.requestEnvelope.request.reason}`);
+    if (handlerInput.requestEnvelope.request.type === 'SessionEndedRequest') {
+      console.log(`Session ended with reason: ${handlerInput.requestEnvelope.request.reason}`);
+    }
     return handlerInput.responseBuilder.getResponse();
   },
 };
 
-const ErrorHandler = {
+const ErrorHandler: _ErrorHandler = {
   canHandle() {
     return true;
   },
@@ -120,21 +122,24 @@ const ErrorHandler = {
   },
 };
 
-const LocalizationInterceptor = {
-  process(handlerInput) {
+type LocalizationClient = i18n.TFunction & {
+  localize?: (key: string) => string;
+};
+
+const LocalizationInterceptor: RequestInterceptor = {
+  async process(handlerInput) {
     // Gets the locale from the request and initializes i18next.
-    const localizationClient = i18n.init({
+    const localizationClient: LocalizationClient = await i18n.init({
       lng: handlerInput.requestEnvelope.request.locale,
       resources: languageStrings,
       returnObjects: true
     });
     // Creates a localize function to support arguments.
-    localizationClient.localize = function localize() {
+    localizationClient.localize = (key): string => {
       // gets arguments through and passes them to
       // i18next using sprintf to replace string placeholders
       // with arguments.
-      const args = arguments;
-      const value = i18n.t(...args);
+      const value = i18n.t(key);
       // If an array is used then a random value is selected
       if (Array.isArray(value)) {
         return value[Math.floor(Math.random() * value.length)];
@@ -144,15 +149,17 @@ const LocalizationInterceptor = {
     // this gets the request attributes and save the localize function inside
     // it to be used in a handler by calling requestAttributes.t(STRING_ID, [args...])
     const attributes = handlerInput.attributesManager.getRequestAttributes();
-    attributes.t = function translate(...args) {
-      return localizationClient.localize(...args);
+    attributes.t = (key: string): string | undefined => {
+      if (localizationClient.localize) {
+        return localizationClient.localize(key);
+      }
     }
   }
 };
 
-const skillBuilder = Alexa.SkillBuilders.custom();
+const skillBuilder = SkillBuilders.custom();
 
-exports.handler = skillBuilder
+export const handler = skillBuilder
   .addRequestHandlers(
     GetNewFactHandler,
     HelpHandler,

@@ -1,2 +1,6 @@
 .DS_Store
-/lambda/node_modules
+/node_modules
+
+# Lambda
+/.ask/lambda
+/lambda
